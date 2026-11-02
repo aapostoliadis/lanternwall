@@ -1,0 +1,11 @@
+{
+  "name": "lanternwall",
+  "private": true,
+  "scripts": {
+    "check": "node dev/check.js",
+    "smoke": "node dev/smoke.js"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

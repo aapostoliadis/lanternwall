@@ -44,10 +44,16 @@ canvas { display: block; border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0
 canvas:focus-visible { outline: 3px solid var(--lantern); outline-offset: 4px; }
 .hint { font-size: 13px; letter-spacing: .02em; opacity: .72; text-align: center; text-wrap: balance; max-width: 70ch; }
 .hint b { font-weight: 800; color: var(--glow); }
+/* On a phone held upright the board is too small to tap comfortably, so suggest turning it sideways. */
+.rotate { display: none; font-weight: 800; color: var(--glow); }
+@media (orientation: portrait) and (pointer: coarse) { .rotate { display: block; } }
+/* Touch screens have no keys to list, and a short landscape phone needs that height for the board. */
+@media (pointer: coarse) and (max-height: 500px) { .keys { display: none; } }
 </style>
 
+<p class="hint rotate">Turn your phone sideways for a bigger garden.</p>
 <div id="wrap"><canvas id="game" tabindex="0" aria-label="Lanternwall game board"></canvas></div>
-<p class="hint">Pick a lantern card, then a tile. Tap fireflies to catch them. Keys: <b>1–5</b> lanterns, <b>S</b> shovel, <b>P</b> pause, <b>Esc</b> cancel.</p>
+<p class="hint keys">Pick a lantern card, then a tile. Tap fireflies to catch them. Keys: <b>1–5</b> lanterns, <b>S</b> shovel, <b>P</b> pause, <b>F</b> 2× speed, <b>M</b> mute, <b>Esc</b> cancel.</p>
 
 <script>
 (() => {
@@ -78,10 +84,10 @@ const PLANTS = {
 };
 const ORDER = ['clam', 'urchin', 'frost', 'coral', 'puffer'];
 const FOES = {
-  crab:   { hp: 200,  armor: 0,    speed: 17, dps: 100, cost: 1, from: 1, w: 3,   hw: 24 },
-  eel:    { hp: 300,  armor: 0,    speed: 34, dps: 80,  cost: 2, from: 3, w: 2,   hw: 26 },
-  bucket: { hp: 200,  armor: 1000, speed: 17, dps: 100, cost: 3, from: 4, w: 1.5, hw: 24 },
-  blob:   { hp: 1500, armor: 0,    speed: 9,  dps: 220, cost: 5, from: 7, w: 1,   hw: 36 },
+  wisp:   { hp: 200,  armor: 0,    speed: 17, dps: 100, cost: 1, from: 1, w: 3,   hw: 24 },
+  runner: { hp: 300,  armor: 0,    speed: 34, dps: 80,  cost: 2, from: 3, w: 2,   hw: 26 },
+  masked: { hp: 200,  armor: 1000, speed: 17, dps: 100, cost: 3, from: 4, w: 1.5, hw: 24 },
+  hulk:   { hp: 1500, armor: 0,    speed: 9,  dps: 220, cost: 5, from: 7, w: 1,   hw: 36 },
 };
 const TOTAL_WAVES = 10;
 const cellX = c => GX + c * CW + CW / 2;
@@ -110,7 +116,10 @@ const decor = Array.from({ length: 34 }, () => ({
 const bubbles = Array.from({ length: 26 }, () => ({ x: rand(0, W), y: rand(0, H), r: rand(1.5, 4.5), s: rand(10, 28), p: rand(0, 6) }));
 
 // ---------- audio ----------
+// mute survives reloads; storage can be blocked, so failures are ignored
 let AC = null, muted = false;
+try { muted = localStorage.getItem('lanternwall.muted') === '1'; } catch (e) {}
+function toggleMute() { muted = !muted; try { localStorage.setItem('lanternwall.muted', muted ? '1' : '0'); } catch (e) {} }
 function audio() {
   if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; } }
   if (AC && AC.state === 'suspended') AC.resume();
@@ -150,6 +159,7 @@ function damage(f, amt) {
 }
 
 // ---------- waves ----------
+const INTRO = { runner: 'New shadow: runners are fast but frail', masked: 'New shadow: masks soak up sparks until they crack', hulk: 'New shadow: hulks are slow, huge and hungry' };
 function startWave() {
   S.wave++;
   const n = S.wave, flag = n % 5 === 0;
@@ -166,7 +176,11 @@ function startWave() {
     delay += flag ? rand(.5, 1.2) : rand(1.2, 3.2);
   }
   if (flag) { banner('A long dark is falling!', 'Night ' + n); noise(.8, .12, 400); tone(110, .8, 'sawtooth', .05, .6); }
-  else banner('Night ' + n);
+  else {
+    const fresh = Object.keys(FOES).find(k => FOES[k].from === n && INTRO[k]);
+    banner('Night ' + n, fresh ? INTRO[fresh] : null);
+    if (fresh) tone(150, .5, 'sawtooth', .04, .7);
+  }
   S.waveLen = S.waveT = flag ? 32 : 24;
 }
 function spawnFoe(k) {
@@ -275,9 +289,9 @@ function update(dt) {
   for (const f of S.foes) if (f.hp <= 0) {
     f.dead = true; S.kills++;
     const gy = groundY(f.row);
-    const cols = f.k === 'blob' ? ['#07061a', '#ff3c3c', '#2a2566'] : f.k === 'eel' ? ['#07061a', '#ffb347', '#1d1950'] : ['#07061a', '#ff3c3c', '#3a2f78'];
+    const cols = f.k === 'hulk' ? ['#07061a', '#ff3c3c', '#2a2566'] : f.k === 'runner' ? ['#07061a', '#ffb347', '#1d1950'] : ['#07061a', '#ff3c3c', '#3a2f78'];
     burst(f.x, gy - 30, 16, cols, 160);
-    tone(f.k === 'blob' ? 120 : 240, .25, 'triangle', .05, .5);
+    tone(f.k === 'hulk' ? 120 : 240, .25, 'triangle', .05, .5);
   }
   S.foes = S.foes.filter(f => !f.dead);
 
@@ -307,11 +321,17 @@ function updateFx(dt) {
   S.fx = S.fx.filter(p => p.life > 0);
 }
 // best night reached survives reloads; storage can be blocked (private windows), so failures are ignored
-let best = 0, newBest = false;
-try { best = +localStorage.getItem('lanternwall.best') || 0; } catch (e) {}
+// endless runs keep their own record, so a long endless night never hides the campaign best
+let best = 0, bestEndless = 0, newBest = false;
+try { best = +localStorage.getItem('lanternwall.best') || 0; bestEndless = +localStorage.getItem('lanternwall.bestEndless') || 0; } catch (e) {}
 function saveBest(n) {
-  newBest = n > best;
-  if (newBest) { best = n; try { localStorage.setItem('lanternwall.best', best); } catch (e) {} }
+  if (S.endless) {
+    newBest = n > bestEndless;
+    if (newBest) { bestEndless = n; try { localStorage.setItem('lanternwall.bestEndless', bestEndless); } catch (e) {} }
+  } else {
+    newBest = n > best;
+    if (newBest) { best = n; try { localStorage.setItem('lanternwall.best', best); } catch (e) {} }
+  }
 }
 function lose() { mode = 'over'; S.sel = null; saveBest(S.wave); noise(1, .2, 300); tone(196, .9, 'sawtooth', .06, .4); }
 function win() { mode = 'won'; S.sel = null; saveBest(TOTAL_WAVES); [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .3, 'triangle', .06), i * 140)); }
@@ -533,7 +553,7 @@ const PLANT_DRAW = { clam: drawClam, urchin: drawUrchin, frost: drawFrost, coral
 // foes are shadow puppets: flat ink silhouettes, red eyes, punched holes that let the light through
 function redEye(x, y, r) { glow(x, y, r * 3, 'rgba(255,60,60,.45)'); ctx.fillStyle = 'rgba(255,60,60,.95)'; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); }
 function holes(x0, y, n, gap) { ctx.fillStyle = 'rgba(255,170,90,.4)'; for (let i = 0; i < n; i++) { ctx.beginPath(); ctx.arc(x0 + i * gap, y, 1.6, 0, 7); ctx.fill(); } }
-function drawCrab(f, t, bucket) {
+function drawWisp(f, t, masked) {
   const w = t * 9, bob = f.eating ? Math.abs(Math.sin(w * 1.6)) * 2 : Math.abs(Math.sin(w)) * 2.5;
   shadow(0, 0, 30, 6);
   ctx.strokeStyle = INK; ctx.lineWidth = 4; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -554,13 +574,13 @@ function drawCrab(f, t, bucket) {
   ctx.save(); ctx.rotate(-snap); ctx.beginPath(); ctx.ellipse(-8, -3, 11, 6, 0, 0, 7); ctx.fill(); ctx.restore();
   ctx.save(); ctx.rotate(snap); ctx.beginPath(); ctx.ellipse(-8, 4, 10, 5, 0, 0, 7); ctx.fill(); ctx.restore();
   ctx.restore();
-  if (bucket) {
+  if (masked) {
     ctx.fillStyle = INK;
     ctx.beginPath(); ctx.moveTo(-15, -70); ctx.lineTo(15, -70); ctx.lineTo(22, -34); ctx.lineTo(-22, -34); ctx.closePath(); ctx.fill();
     ctx.strokeStyle = 'rgba(255,170,90,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.fillRect(-23, -38, 46, 6);
     holes(-9, -64, 4, 6);
-    if (f.armor < FOES.bucket.armor * .5) { ctx.strokeStyle = 'rgba(255,170,90,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(6, -68); ctx.lineTo(1, -58); ctx.lineTo(8, -50); ctx.stroke(); }
+    if (f.armor < FOES.masked.armor * .5) { ctx.strokeStyle = 'rgba(255,170,90,.6)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(6, -68); ctx.lineTo(1, -58); ctx.lineTo(8, -50); ctx.stroke(); }
     redEye(-10, -46, 3.5); redEye(5, -46, 3.5);
   } else {
     ctx.strokeStyle = INK; ctx.lineWidth = 3;
@@ -570,7 +590,7 @@ function drawCrab(f, t, bucket) {
   }
   ctx.restore();
 }
-function drawEel(f, t) {
+function drawRunner(f, t) {
   shadow(30, 0, 50, 6);
   const N = 11, pts = [];
   for (let i = 0; i < N; i++) pts.push({ x: i * 9, y: -24 + Math.sin(t * 9 - i * .75) * 5 * (i / N + .3), r: 12 - i * .7 });
@@ -587,7 +607,7 @@ function drawEel(f, t) {
   ctx.fillStyle = '#1d1950'; ctx.beginPath(); ctx.moveTo(-22, h.y + 1); ctx.lineTo(-8, h.y - bite * .3); ctx.lineTo(-8, h.y + 2 + bite); ctx.closePath(); ctx.fill();
   redEye(-8, h.y - 5, 3.2);
 }
-function drawBlob(f, t) {
+function drawHulk(f, t) {
   shadow(0, 0, 40, 8);
   const sq = f.eating ? Math.sin(t * 8) * .06 : Math.sin(t * 4) * .04;
   ctx.save(); ctx.translate(0, -34); ctx.scale(1 + sq, 1 - sq);
@@ -612,14 +632,14 @@ function drawFoe(f) {
   const t = f.anim;
   ctx.save();
   ctx.translate(f.x + (f.hit > 0 ? rand(-1.5, 1.5) : 0), groundY(f.row));
-  glow(f.k === 'eel' ? 30 : 0, -34, f.k === 'blob' ? 70 : 56, f.hit > 0 ? 'rgba(255,220,170,.35)' : 'rgba(255,150,80,.12)');
-  if (f.k === 'crab') drawCrab(f, t, false);
-  else if (f.k === 'bucket') drawCrab(f, t, f.armor > 0);
-  else if (f.k === 'eel') drawEel(f, t);
-  else drawBlob(f, t);
+  glow(f.k === 'runner' ? 30 : 0, -34, f.k === 'hulk' ? 70 : 56, f.hit > 0 ? 'rgba(255,220,170,.35)' : 'rgba(255,150,80,.12)');
+  if (f.k === 'wisp') drawWisp(f, t, false);
+  else if (f.k === 'masked') drawWisp(f, t, f.armor > 0);
+  else if (f.k === 'runner') drawRunner(f, t);
+  else drawHulk(f, t);
   if (f.slow > 0) {
     ctx.globalAlpha = .22; ctx.fillStyle = 'rgb(140,200,255)';
-    ctx.beginPath(); ctx.ellipse(f.k === 'eel' ? 30 : 0, -32, f.k === 'eel' ? 56 : 34, 36, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(f.k === 'runner' ? 30 : 0, -32, f.k === 'runner' ? 56 : 34, 36, 0, 0, 7); ctx.fill();
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#cfe6ff'; ctx.lineWidth = 1.5;
     for (let i = 0; i < 3; i++) { const sx = -16 + i * 16, sy = -66 - (i % 2) * 6; ctx.beginPath(); for (let k = 0; k < 3; k++) { const a = k * Math.PI / 3; ctx.moveTo(sx - Math.cos(a) * 4, sy - Math.sin(a) * 4); ctx.lineTo(sx + Math.cos(a) * 4, sy + Math.sin(a) * 4); } ctx.stroke(); }
@@ -630,9 +650,12 @@ function drawFoe(f) {
 // ---------- drawing: HUD ----------
 const CARD = i => ({ x: 132 + i * 82, y: 12, w: 74, h: 88 });
 const SHOVEL = { x: 548, y: 12, w: 66, h: 88 };
+const FAST = { x: 848, y: 30, w: 40, h: 40 };
 const PAUSE = { x: 896, y: 30, w: 40, h: 40 };
 const MUTE = { x: 944, y: 30, w: 40, h: 40 };
 const inR = (p, r) => p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h;
+// the small HUD buttons take taps across their whole column of the top bar, so they stay hittable when the board is scaled down on phones
+const hitBtn = (p, r) => p.x >= r.x - 4 && p.x <= (r === MUTE ? W : r.x + r.w + 4) && p.y <= 108;
 
 function drawHUD(t) {
   const g = ctx.createLinearGradient(0, 0, 0, 108);
@@ -676,7 +699,7 @@ function drawHUD(t) {
   ctx.fillStyle = '#ffe6b8'; ctx.globalAlpha = .6; ctx.font = '11px Nunito, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('S', SHOVEL.x + SHOVEL.w / 2, sy + SHOVEL.h - 12); ctx.globalAlpha = 1;
 
   // tide meter
-  const mx = 640, mw = 232, my = 44;
+  const mx = 630, mw = 200, my = 44;
   ctx.textAlign = 'left'; ctx.fillStyle = '#ffbf7a'; ctx.font = '17px "Lilita One", sans-serif';
   const label = S.endless ? `Night ${S.wave} · endless` : S.wave === 0 ? 'Quiet dusk' : `Night ${Math.min(S.wave, TOTAL_WAVES)} / ${TOTAL_WAVES}`;
   ctx.fillText(label, mx, my - 14);
@@ -695,7 +718,7 @@ function drawHUD(t) {
   }
 
   // buttons
-  btn(PAUSE, paused ? 'play' : 'pause'); btn(MUTE, muted ? 'muted' : 'sound');
+  btn(FAST, fast ? 'fast' : 'slow'); btn(PAUSE, paused ? 'play' : 'pause'); btn(MUTE, muted ? 'muted' : 'sound');
 }
 function drawShovel(x, y, s) {
   ctx.save(); ctx.translate(x, y); ctx.scale(s, s); ctx.rotate(-.6);
@@ -709,6 +732,10 @@ function btn(r, icon) {
   const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
   ctx.fillStyle = '#ffe6b8'; ctx.strokeStyle = '#ffe6b8';
   if (icon === 'pause') { ctx.fillRect(cx - 7, cy - 8, 5, 16); ctx.fillRect(cx + 2, cy - 8, 5, 16); }
+  else if (icon === 'fast' || icon === 'slow') {
+    if (icon === 'fast') { ctx.fillStyle = '#ffb347'; ctx.strokeStyle = '#ffb347'; }
+    for (const dx of [-9, 0]) { ctx.beginPath(); ctx.moveTo(cx + dx, cy - 8); ctx.lineTo(cx + dx + 9, cy); ctx.lineTo(cx + dx, cy + 8); ctx.fill(); }
+  }
   else if (icon === 'play') { ctx.beginPath(); ctx.moveTo(cx - 6, cy - 9); ctx.lineTo(cx + 9, cy); ctx.lineTo(cx - 6, cy + 9); ctx.fill(); }
   else {
     ctx.beginPath(); ctx.moveTo(cx - 10, cy - 4); ctx.lineTo(cx - 5, cy - 4); ctx.lineTo(cx + 1, cy - 9); ctx.lineTo(cx + 1, cy + 9); ctx.lineTo(cx - 5, cy + 4); ctx.lineTo(cx - 10, cy + 4); ctx.fill();
@@ -817,11 +844,16 @@ function render() {
     ctx.font = '54px "Lilita One", sans-serif';
     ctx.fillStyle = '#120f36'; ctx.fillText(S.banner.text, W / 2 + 3, 330 + 4);
     ctx.fillStyle = S.banner.sub ? '#ff8a6a' : '#ffd58a'; ctx.fillText(S.banner.text, W / 2, 330);
+    if (S.banner.sub) {
+      ctx.font = '800 22px Nunito, sans-serif';
+      ctx.fillStyle = '#120f36'; ctx.fillText(S.banner.sub, W / 2 + 2, 384 + 2);
+      ctx.fillStyle = '#ffe6b8'; ctx.fillText(S.banner.sub, W / 2, 384);
+    }
     ctx.globalAlpha = 1;
   }
 
-  if (mode === 'title') overlay('LANTERNWALL', ['Shadows are creeping in from the dark. Plant paper lanterns to hold the line.', 'Firefly lanterns gather light · ember lanterns shoot sparks · frost lanterns chill · firecrackers burst'].concat(best ? [`Best so far: night ${best}`] : []), [BTN_START], t);
-  else if (mode === 'over') overlay('Garden lost', [`The shadows reached the teahouse on night ${S.wave}.`, `You banished ${S.kills} shadows.`, newBest ? `New best: night ${best}!` : `Best: night ${best}`], [BTN_RETRY], t);
+  if (mode === 'title') overlay('LANTERNWALL', ['Shadows are creeping in from the dark. Plant paper lanterns to hold the line.', 'Firefly lanterns gather light · ember lanterns shoot sparks · frost lanterns chill · firecrackers burst'].concat(best ? [`Best so far: night ${best}` + (bestEndless ? ` · endless: night ${bestEndless}` : '')] : []), [BTN_START], t);
+  else if (mode === 'over') overlay('Garden lost', [`The shadows reached the teahouse on night ${S.wave}.`, `You banished ${S.kills} shadows.`, S.endless ? (newBest ? `New endless best: night ${bestEndless}!` : `Endless best: night ${bestEndless}`) : newBest ? `New best: night ${best}!` : `Best: night ${best}`], [BTN_RETRY], t);
   else if (mode === 'won') overlay('Dawn breaks!', [`All ${TOTAL_WAVES} nights held. ${S.kills} shadows banished.`, 'Stay on and see how long the lanterns can burn.'], [BTN_ENDLESS, BTN_RESTART], t);
   else if (paused) {
     ctx.fillStyle = 'rgba(13,11,42,.55)'; ctx.fillRect(0, 108, W, H - 108);
@@ -859,8 +891,9 @@ cv.addEventListener('pointerdown', e => {
     else if (inR(p, BTN_RESTART)) startGame();
     return;
   }
-  if (inR(p, MUTE)) { muted = !muted; return; }
-  if (inR(p, PAUSE)) { paused = !paused; return; }
+  if (hitBtn(p, MUTE)) { toggleMute(); return; }
+  if (hitBtn(p, PAUSE)) { paused = !paused; return; }
+  if (hitBtn(p, FAST)) { fast = !fast; return; }
   if (paused) return;
   for (const pr of S.pearlsF) if (!pr.col && Math.hypot(pr.x - p.x, pr.y - p.y) < 30) { pr.col = true; tone(1046, .12, 'sine', .05, 1.5); return; }
   for (let i = 0; i < ORDER.length; i++) if (inR(p, CARD(i))) { selectCard(ORDER[i]); return; }
@@ -888,6 +921,8 @@ cv.addEventListener('keydown', e => {
   if (k >= '1' && k <= '5') selectCard(ORDER[+k - 1]);
   else if (k === 's') selectCard('shovel');
   else if (k === 'p' && mode === 'play') paused = !paused;
+  else if (k === 'f' && mode === 'play') fast = !fast;
+  else if (k === 'm') toggleMute();
   else if (k === 'escape') S.sel = null;
   else if ((k === 'enter' || k === ' ') && mode !== 'play') { audio(); mode === 'won' ? (mode = 'play', S.endless = true, S.waveT = S.waveLen = 8) : startGame(); }
   else return;
@@ -896,10 +931,12 @@ cv.addEventListener('keydown', e => {
 document.addEventListener('visibilitychange', () => { if (document.hidden && mode === 'play') paused = true; });
 
 // ---------- loop ----------
-let last = performance.now();
+let last = performance.now(), fast = false;
 function frame(now) {
   const dt = Math.min(.05, (now - last) / 1000); last = now;
-  update(dt); render();
+  // 2x speed runs the simulation twice per frame rather than doubling dt, so collisions stay as precise as at 1x
+  update(dt); if (fast && mode === 'play' && !paused) update(dt);
+  render();
   requestAnimationFrame(frame);
 }
 resize();

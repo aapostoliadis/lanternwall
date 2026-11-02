@@ -39,9 +39,11 @@ Pick a lantern card, then click a tile to plant it. Fireflies drift down and ris
 | `1`–`5` | Select a lantern |
 | `S` | Shovel (remove a lantern) |
 | `P` | Pause |
+| `F` | 2× speed |
+| `M` | Mute |
 | `Esc` | Cancel selection |
 
-The game pauses on its own when the window loses focus. Your best night is saved in the browser and shown on the title screen.
+The game pauses on its own when the window loses focus. Your best night, your best endless night and the mute setting are saved in the browser. A banner introduces each new kind of shadow the first night it appears. On a phone, play with it turned sideways.
 
 ## Files
 
@@ -51,6 +53,9 @@ The game pauses on its own when the window loses focus. Your best night is saved
 | `index.html` | Redirects to `lanternwall.html`, so the Pages root opens the game |
 | `screenshot.png` | The gameplay screenshot shown above |
 | `dev/check.js` | Syntax-checks the game's script: `node dev/check.js` |
+| `dev/smoke.js` | Plays a few seconds in headless Chromium and checks phone layouts: `npm install && npx playwright install chromium && node dev/smoke.js` |
+| `.github/workflows/check.yml` | Runs both checks on every push and pull request |
+| `package.json` | Pins Playwright for the smoke test; the game itself needs nothing installed |
 | `dev/lanternwall.orig.html` | Backup from before the lantern restyle |
 | `dev/lanternwall_css.txt`, `dev/lanternwall_world.js` | Extracted CSS and world-drawing segments used while restyling |
 | `dev/lanternwall_restyle_hud.py`, `dev/lanternwall_rewording.py` | One-off scripts that applied the restyle and the lantern wording; already applied, and they expect to run from the repo root against `lanternwall.html` |
