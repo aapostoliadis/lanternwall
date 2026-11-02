@@ -6,6 +6,8 @@ The whole game is one file, `lanternwall.html`: a canvas game with no build step
 
 Source: https://github.com/aapostoliadis/lanternwall
 
+Play online: https://claude.ai/artifact/Qp55iLb15FiPoDh3VuwAjy
+
 ## Play
 
 Open `lanternwall.html` in a browser, or serve the folder:
