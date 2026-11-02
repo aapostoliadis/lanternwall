@@ -8,6 +8,8 @@ Source: https://github.com/aapostoliadis/lanternwall
 
 Play online: https://claude.ai/artifact/Qp55iLb15FiPoDh3VuwAjy
 
+![Lanternwall gameplay](screenshot.png)
+
 ## Play
 
 Open `lanternwall.html` in a browser, or serve the folder:
@@ -46,6 +48,7 @@ The game pauses on its own when the window loses focus.
 | File | What it is |
 | --- | --- |
 | `lanternwall.html` | The game |
+| `screenshot.png` | The gameplay screenshot shown above |
 | `lanternwall.orig.html` | Backup from before the lantern restyle |
 | `lanternwall_check.js` | The game's script, extracted for `node --check` |
 | `lanternwall_css.txt`, `lanternwall_world.js` | Extracted CSS and world-drawing segments used while restyling |
