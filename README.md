@@ -4,6 +4,8 @@ A lane-defense game set in a paper-lantern night garden. Shadows creep in from t
 
 The whole game is one file, `lanternwall.html`: a canvas game with no build step and no dependencies beyond two Google Fonts.
 
+Source: https://github.com/aapostoliadis/lanternwall
+
 ## Play
 
 Open `lanternwall.html` in a browser, or serve the folder:
