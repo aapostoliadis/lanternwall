@@ -53,3 +53,7 @@ The game pauses on its own when the window loses focus.
 | `lanternwall_check.js` | The game's script, extracted for `node --check` |
 | `lanternwall_css.txt`, `lanternwall_world.js` | Extracted CSS and world-drawing segments used while restyling |
 | `lanternwall_restyle_hud.py`, `lanternwall_rewording.py` | One-off scripts that applied the restyle and the lantern wording; already applied, so re-running them edits the game again |
+
+## License
+
+MIT. See [LICENSE](LICENSE).
