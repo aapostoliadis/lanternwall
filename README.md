@@ -6,7 +6,7 @@ The whole game is one file, `lanternwall.html`: a canvas game with no build step
 
 Source: https://github.com/aapostoliadis/lanternwall
 
-Play online: https://claude.ai/artifact/Qp55iLb15FiPoDh3VuwAjy
+Play online: https://aapostoliadis.github.io/lanternwall/
 
 ![Lanternwall gameplay](screenshot.png)
 
@@ -41,18 +41,19 @@ Pick a lantern card, then click a tile to plant it. Fireflies drift down and ris
 | `P` | Pause |
 | `Esc` | Cancel selection |
 
-The game pauses on its own when the window loses focus.
+The game pauses on its own when the window loses focus. Your best night is saved in the browser and shown on the title screen.
 
 ## Files
 
 | File | What it is |
 | --- | --- |
 | `lanternwall.html` | The game |
+| `index.html` | Redirects to `lanternwall.html`, so the Pages root opens the game |
 | `screenshot.png` | The gameplay screenshot shown above |
-| `lanternwall.orig.html` | Backup from before the lantern restyle |
-| `lanternwall_check.js` | The game's script, extracted for `node --check` |
-| `lanternwall_css.txt`, `lanternwall_world.js` | Extracted CSS and world-drawing segments used while restyling |
-| `lanternwall_restyle_hud.py`, `lanternwall_rewording.py` | One-off scripts that applied the restyle and the lantern wording; already applied, so re-running them edits the game again |
+| `dev/check.js` | Syntax-checks the game's script: `node dev/check.js` |
+| `dev/lanternwall.orig.html` | Backup from before the lantern restyle |
+| `dev/lanternwall_css.txt`, `dev/lanternwall_world.js` | Extracted CSS and world-drawing segments used while restyling |
+| `dev/lanternwall_restyle_hud.py`, `dev/lanternwall_rewording.py` | One-off scripts that applied the restyle and the lantern wording; already applied, and they expect to run from the repo root against `lanternwall.html` |
 
 ## License
 

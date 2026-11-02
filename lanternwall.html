@@ -2,6 +2,14 @@
 <title>Lanternwall</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A lane-defense game set in a paper-lantern night garden. Plant lanterns to hold back the shadows for 10 nights.">
+<meta property="og:title" content="Lanternwall">
+<meta property="og:description" content="A lane-defense game set in a paper-lantern night garden. Plant lanterns to hold back the shadows for 10 nights.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://aapostoliadis.github.io/lanternwall/lanternwall.html">
+<meta property="og:image" content="https://aapostoliadis.github.io/lanternwall/screenshot.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231b1747'/%3E%3Crect x='13' y='3' width='6' height='4' rx='1' fill='%23ffd58a'/%3E%3Cellipse cx='16' cy='17' rx='10' ry='11' fill='%23ff7a45'/%3E%3Cpath d='M16 6v22M9 9.5q-3 7.5 0 15M23 9.5q3 7.5 0 15' stroke='%23c2462a' stroke-width='1.4' fill='none'/%3E%3Cellipse cx='16' cy='17' rx='4' ry='5' fill='%23ffd58a' opacity='.7'/%3E%3Crect x='12' y='27' width='8' height='3' rx='1' fill='%23ffd58a'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@600;800&display=swap">
@@ -298,8 +306,15 @@ function updateFx(dt) {
   for (const p of S.fx) { p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += p.g * dt; }
   S.fx = S.fx.filter(p => p.life > 0);
 }
-function lose() { mode = 'over'; S.sel = null; noise(1, .2, 300); tone(196, .9, 'sawtooth', .06, .4); }
-function win() { mode = 'won'; S.sel = null; [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .3, 'triangle', .06), i * 140)); }
+// best night reached survives reloads; storage can be blocked (private windows), so failures are ignored
+let best = 0, newBest = false;
+try { best = +localStorage.getItem('lanternwall.best') || 0; } catch (e) {}
+function saveBest(n) {
+  newBest = n > best;
+  if (newBest) { best = n; try { localStorage.setItem('lanternwall.best', best); } catch (e) {} }
+}
+function lose() { mode = 'over'; S.sel = null; saveBest(S.wave); noise(1, .2, 300); tone(196, .9, 'sawtooth', .06, .4); }
+function win() { mode = 'won'; S.sel = null; saveBest(TOTAL_WAVES); [523, 659, 784, 1046].forEach((f, i) => setTimeout(() => tone(f, .3, 'triangle', .06), i * 140)); }
 
 // ---------- drawing: world ----------
 function glow(x, y, r, col) {
@@ -805,8 +820,8 @@ function render() {
     ctx.globalAlpha = 1;
   }
 
-  if (mode === 'title') overlay('LANTERNWALL', ['Shadows are creeping in from the dark. Plant paper lanterns to hold the line.', 'Firefly lanterns gather light · ember lanterns shoot sparks · frost lanterns chill · firecrackers burst'], [BTN_START], t);
-  else if (mode === 'over') overlay('Garden lost', [`The shadows reached the teahouse on night ${S.wave}.`, `You banished ${S.kills} shadows.`], [BTN_RETRY], t);
+  if (mode === 'title') overlay('LANTERNWALL', ['Shadows are creeping in from the dark. Plant paper lanterns to hold the line.', 'Firefly lanterns gather light · ember lanterns shoot sparks · frost lanterns chill · firecrackers burst'].concat(best ? [`Best so far: night ${best}`] : []), [BTN_START], t);
+  else if (mode === 'over') overlay('Garden lost', [`The shadows reached the teahouse on night ${S.wave}.`, `You banished ${S.kills} shadows.`, newBest ? `New best: night ${best}!` : `Best: night ${best}`], [BTN_RETRY], t);
   else if (mode === 'won') overlay('Dawn breaks!', [`All ${TOTAL_WAVES} nights held. ${S.kills} shadows banished.`, 'Stay on and see how long the lanterns can burn.'], [BTN_ENDLESS, BTN_RESTART], t);
   else if (paused) {
     ctx.fillStyle = 'rgba(13,11,42,.55)'; ctx.fillRect(0, 108, W, H - 108);
